@@ -1,20 +1,20 @@
-name: Create & Auto-Restore VPS
+name: 🌱 Create & Auto-Restore VPS
 
 on:
-  workflow_dispatch:
-  repository_dispatch:
+  workflow_dispatch:          # ✅ Manual button
+  repository_dispatch:        # ✅ API trigger
     types: [create-vps]
 
 jobs:
   start-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 360   # Github max (6 hours)
+    timeout-minutes: 360  # 6 hours
 
     steps:
-      - name: ⬇️ Checkout
+      - name: ⬇️ Checkout code
         uses: actions/checkout@v3
 
-      - name: 📁 Create dirs
+      - name: 📁 Create folders
         run: mkdir -p links .backup
 
       - name: 💾 Auto Restore backup
@@ -27,47 +27,67 @@ jobs:
             echo "⚠️ No backup zip found, starting fresh"
           fi
 
-      - name: 🔧 Install playit & pm2
+      - name: 🐧 Install Docker & other tools
         run: |
           sudo apt update
-          sudo apt install -y curl unzip
-          curl -SsL https://playit-cloud.github.io/ppa/key.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/playit.gpg >/dev/null
-          echo "deb [signed-by=/etc/apt/trusted.gpg.d/playit.gpg] https://playit-cloud.github.io/ppa/data ./" | sudo tee /etc/apt/sources.list.d/playit-cloud.list
-          sudo apt update
-          sudo apt install -y playit
+          sudo apt install -y docker.io curl unzip tmate
+          sudo systemctl start docker
+          sudo systemctl enable docker
           npm install -g pm2
 
-      - name: ▶️ Start playit with pm2
+      - name: 🐡 Install & start PufferPanel in Docker
         run: |
-          pm2 start playit --name playit
-          pm2 save
+          mkdir -p /var/lib/pufferpanel
+          docker volume create pufferpanel-config
+          docker create \
+            --name pufferpanel \
+            -p 8080:8080 \
+            -p 5657:5657 \
+            -v pufferpanel-config:/etc/pufferpanel \
+            -v /var/lib/pufferpanel:/var/lib/pufferpanel \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            --restart=on-failure \
+            pufferpanel/pufferpanel:latest
+          docker start pufferpanel
+
+      - name: ➕ Create new user & set password
+        run: |
+          sudo useradd -m newuser
+          echo 'newuser:strongpassword' | sudo chpasswd
+          sudo usermod -aG sudo newuser
 
       - name: 🔐 Start tmate SSH session
         run: |
-          sudo apt install -y tmate
           tmate -S /tmp/tmate.sock new-session -d
           tmate -S /tmp/tmate.sock wait tmate-ready
           SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
           echo "$SSH" > "links/${{ github.event.client_payload.vps_name || 'manual-vps' }}.txt"
           echo "✅ SSH Ready: $SSH"
 
-          # Send to Discord
+          # 📢 Send SSH to Discord
           curl -X POST -H "Content-Type: application/json" \
-            -d "{\"content\": \"📡 New SSH Link: $SSH\"}" \
+            -d "{\"content\": \"📡 **New SSH Link:** $SSH\"}" \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      - name: 📦 Save backup
+      - name: 📦 Save backup (pm2 list, docker config etc)
         run: |
           name="${{ github.event.client_payload.vps_name || 'manual-vps' }}"
           zip -r ".backup/$name.zip" . -x ".git/*" ".github/*" ".backup/*" || true
 
-      - name: 📤 Commit & Push
+      - name: 📤 Commit & Push backup & SSH
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🔁 Auto backup & SSH update"
+          commit_message: "🔁 Auto backup & SSH update for ${{ github.event.client_payload.vps_name || 'manual-vps' }}"
           file_pattern: 'links/*.txt .backup/*.zip'
 
-      - name: ⏳ Keep alive
+      - name: 🔄 Trigger self workflow for auto restart
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          event-type: create-vps
+          client-payload: '{"vps_name":"manual-vps"}'
+
+      - name: ⏳ Keep VPS alive (6 hours)
         run: |
-          echo "⏳ VPS running for 6 hours..."
+          echo "⏳ Keeping VPS alive..."
           sleep $((360 * 60))
