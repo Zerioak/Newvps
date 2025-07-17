@@ -1,4 +1,4 @@
-name: Create & Auto-Restore VPS
+name: Create VPS
 
 on:
   workflow_dispatch:
@@ -8,73 +8,65 @@ on:
 jobs:
   start-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 360  # 6 hours
 
     steps:
-      - name: ⬇️ Checkout
-        uses: actions/checkout@v3
+    - name: ⬇️ Checkout
+      uses: actions/checkout@v3
 
-      - name: 📁 Create dirs
-        run: mkdir -p links .backup
+    - name: 📁 Create dirs
+      run: mkdir -p links .backup
 
-      - name: 💾 Auto Restore backup
-        run: |
-          name="${{ github.event.client_payload.vps_name || 'manual-vps' }}"
-          if [ -f ".backup/$name.zip" ]; then
-            echo "📦 Restoring backup..."
-            unzip ".backup/$name.zip" -d . || echo "⚠️ Failed to unzip"
-          else
-            echo "⚠️ No backup zip found, starting fresh"
-          fi
+    - name: 💾 Restore backup
+      run: |
+        name="${{ github.event.client_payload.vps_name || 'manual-vps' }}"
+        if [ -f ".backup/$name.zip" ]; then
+          echo "📦 Restoring backup..."
+          unzip ".backup/$name.zip" -d .
+        else
+          echo "⚠️ No backup found, starting fresh."
+        fi
 
-      - name: 🔧 Install playit & pm2
-        run: |
-          sudo apt update
-          sudo apt install -y curl unzip
-          curl -SsL https://playit-cloud.github.io/ppa/key.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/playit.gpg >/dev/null
-          echo "deb [signed-by=/etc/apt/trusted.gpg.d/playit.gpg] https://playit-cloud.github.io/ppa/data ./" | sudo tee /etc/apt/sources.list.d/playit-cloud.list
-          sudo apt update
-          sudo apt install -y playit
-          npm install -g pm2
+    - name: ⚙️ Install packages (tmate, playit, pm2)
+      run: |
+        sudo apt update
+        sudo apt install -y tmate
+        curl -SsL https://playit-cloud.github.io/ppa/key.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/playit.gpg >/dev/null
+        echo "deb [signed-by=/etc/apt/trusted.gpg.d/playit.gpg] https://playit-cloud.github.io/ppa/data ./" | sudo tee /etc/apt/sources.list.d/playit-cloud.list
+        sudo apt update
+        sudo apt install -y playit
+        sudo npm install -g pm2
 
-      - name: ▶️ Start playit with pm2
-        run: |
-          pm2 start playit --name playit
-          pm2 save
+    - name: 🔐 Start tmate session
+      run: |
+        tmate -S /tmp/tmate.sock new-session -d
+        tmate -S /tmp/tmate.sock wait tmate-ready
+        SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
+        echo "$SSH" > "links/${{ github.event.client_payload.vps_name || 'manual-vps' }}.txt"
+        echo "✅ SSH Ready: $SSH"
+        curl -H "Content-Type: application/json" -X POST \
+        -d "{\"content\": \"🆕 New SSH: $SSH\"}" \
+        ${{ secrets.DISCORD_WEBHOOK }}
 
-      - name: 🔐 Start tmate session (SSH)
-        id: sshstep
-        run: |
-          sudo apt install -y tmate
-          tmate -S /tmp/tmate.sock new-session -d
-          tmate -S /tmp/tmate.sock wait tmate-ready
-          SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
-          echo "$SSH" > "links/${{ github.event.client_payload.vps_name || 'manual-vps' }}.txt"
-          echo "ssh_link=$SSH" >> $GITHUB_OUTPUT
-          echo "✅ SSH Ready: $SSH"
-          sleep 10
+    - name: 🚀 Start playit tunnel with pm2
+      run: |
+        pm2 start playit --name playit
+        pm2 save
 
-      - name: 📢 Send SSH link to Discord
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: |
-          curl -H "Content-Type: application/json" \
-          -X POST \
-          -d "{\"content\": \"✅ New SSH link: **${{ steps.sshstep.outputs.ssh_link }}**\"}" \
-          $DISCORD_WEBHOOK
+    - name: 📦 Save backup
+      run: |
+        name="${{ github.event.client_payload.vps_name || 'manual-vps' }}"
+        zip -r ".backup/$name.zip" . -x ".git/*" ".github/*" ".backup/*" || true
 
-      - name: 📦 Save backup
-        run: |
-          name="${{ github.event.client_payload.vps_name || 'manual-vps' }}"
-          zip -r ".backup/$name.zip" . -x ".git/*" ".github/*" ".backup/*" || true
+    - name: 📤 Push changes
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "🔁 Updated SSH + backup"
+        file_pattern: 'links/*.txt .backup/*.zip'
+        commit_user_name: Zerioak
+        commit_user_email: zerioak@example.com
 
-      - name: 📤 Commit & Push
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "🔁 Auto backup & SSH update for ${{ github.event.client_payload.vps_name || 'manual-vps' }}"
-          file_pattern: 'links/*.txt .backup/*.zip'
-
-      - name: ⏳ Keep session alive
-        run: |
-          echo "⏳ Keeping VPS alive for 6 hours..."
-          sleep $((360 * 60))
+    - name: ⏳ Keep session alive
+      run: |
+        echo "⏳ Keeping alive for 6 hours..."
+        sleep $((360*60))
