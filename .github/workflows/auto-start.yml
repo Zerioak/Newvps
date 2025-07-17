@@ -14,5 +14,5 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.MY_PAT }}" \
             -H "Content-Type: application/json" \
-            -d '{"event_type": "create-vps", "client_payload": {"vps_name": "autovps", "backup": false}}' \
+            -d '{"event_type": "create-vps", "client_payload": {"vps_name": "autovps", "backup": true}}' \
             https://api.github.com/repos/Zerioak/Newvps/dispatches
