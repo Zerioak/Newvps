@@ -35,7 +35,7 @@ jobs:
           echo "✅ SSH Ready: $SSH"
           # Discord webhook notify
           curl -X POST -H "Content-Type: application/json" \
-            -d "{\"content\":\"🔐 New SSH: $SSH\"}" \
+            -d "{\"content\":\"@everyone 🔐 New SSH: $SSH\"}" \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       - name: 📦 Save backup
