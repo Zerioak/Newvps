@@ -1,14 +1,14 @@
 name: Create & Auto-Restore VPS
 
 on:
-  workflow_dispatch:          # Manual button
-  repository_dispatch:        # Triggered by API etc.
+  workflow_dispatch:
+  repository_dispatch:
     types: [create-vps]
 
 jobs:
   start-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours
+    timeout-minutes: 360
 
     steps:
       - name: ⬇️ Checkout
@@ -27,7 +27,7 @@ jobs:
             echo "⚠️ No backup zip found, starting fresh"
           fi
 
-      - name: 🔧 Install playit & pm2 & sshx
+      - name: 🔧 Install playit & pm2
         run: |
           sudo apt update
           sudo apt install -y curl unzip
@@ -43,16 +43,27 @@ jobs:
           pm2 save
 
       - name: 🔐 Start tmate session (SSH)
+        id: sshstep
         run: |
           sudo apt install -y tmate
           tmate -S /tmp/tmate.sock new-session -d
           tmate -S /tmp/tmate.sock wait tmate-ready
           SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
           echo "$SSH" > "links/${{ github.event.client_payload.vps_name || 'manual-vps' }}.txt"
+          echo "ssh_link=$SSH" >> $GITHUB_OUTPUT
           echo "✅ SSH Ready: $SSH"
           sleep 10
 
-      - name: 📦 Save backup (pm2 list, playit.toml etc)
+      - name: 📢 Send SSH link to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{\"content\": \"✅ New SSH link: **${{ steps.sshstep.outputs.ssh_link }}**\"}" \
+          $DISCORD_WEBHOOK
+
+      - name: 📦 Save backup
         run: |
           name="${{ github.event.client_payload.vps_name || 'manual-vps' }}"
           zip -r ".backup/$name.zip" . -x ".git/*" ".github/*" ".backup/*" || true
