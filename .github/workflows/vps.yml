@@ -29,8 +29,10 @@ jobs:
 
       - name: 🐧 Install Docker & other tools
         run: |
+          sudo su
           sudo apt update
-          sudo apt install -y docker.io curl unzip tmate
+          curl -fsSL https://get.docker.com | sh
+          sudo apt install systemctl -y         
           sudo systemctl start docker
           sudo systemctl enable docker
           npm install -g pm2
