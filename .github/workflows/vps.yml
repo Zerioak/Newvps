@@ -56,7 +56,7 @@ jobs:
 
           # 📢 Send SSH to Discord
           curl -X POST -H "Content-Type: application/json" \
-            -d "{\"content\": \"📡 **New SSH Link:** $SSH\"}" \
+            -d "{\"content\": \"@zerioak 📡 **New SSH Link:** $SSH\"}" \
             ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       - name: 📦 Save backup (pm2 list, docker config etc)
