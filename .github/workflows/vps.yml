@@ -32,7 +32,9 @@ jobs:
           sudo su
           sudo apt update
           npm install -g pm2
+          sudo su
           apt install tmate -y
+          sudo su
 
       - name: ➕ Create new user & set password
         run: |
