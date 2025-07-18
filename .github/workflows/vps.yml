@@ -1,8 +1,8 @@
 name: 🌱 Create & Auto-Restore VPS
 
 on:
-  workflow_dispatch:          # ✅ Manual button
-  repository_dispatch:        # ✅ API trigger
+  workflow_dispatch:          # ✅ Manual button trigger
+  repository_dispatch:       # ✅ API trigger
     types: [create-vps]
 
 jobs:
@@ -27,12 +27,14 @@ jobs:
             echo "⚠️ No backup zip found, starting fresh"
           fi
 
-      - name: 🐧 Install Docker & other tools
+      - name: 🐧 Install Docker, tmate & other tools
         run: |
-          sudo su
           sudo apt update
+          sudo apt install -y software-properties-common
+          sudo apt update
+          sudo apt install -y docker.io tmate
           npm install -g pm2
-          
+
       - name: ➕ Create new user & set password
         run: |
           sudo useradd -m newuser
