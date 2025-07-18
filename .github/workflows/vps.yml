@@ -68,7 +68,7 @@ jobs:
       - name: 🔄 Trigger self workflow for auto restart
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.MY_PAT }}
           event-type: create-vps
           client-payload: '{"vps_name":"manual-vps"}'
 
