@@ -31,26 +31,14 @@ jobs:
         run: |
           sudo su
           sudo apt update
-          curl -fsSL https://get.docker.com | sh
-          sudo apt install systemctl -y         
-          sudo systemctl start docker
-          sudo systemctl enable docker
           npm install -g pm2
 
       - name: 🐡 Install & start PufferPanel in Docker
         run: |
-          mkdir -p /var/lib/pufferpanel
-          docker volume create pufferpanel-config
-          docker create \
-            --name pufferpanel \
-            -p 8080:8080 \
-            -p 5657:5657 \
-            -v pufferpanel-config:/etc/pufferpanel \
-            -v /var/lib/pufferpanel:/var/lib/pufferpanel \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            --restart=on-failure \
-            pufferpanel/pufferpanel:latest
-          docker start pufferpanel
+          apt install systemctl -y
+          curl -s https://packagecloud.io/install/repositories/pufferpanel/pufferpanel/script.deb.sh?any=true | sudo bash
+          sudo apt-get install -y pufferpanel
+          sudo systemctl enable --now pufferpanel
 
       - name: ➕ Create new user & set password
         run: |
