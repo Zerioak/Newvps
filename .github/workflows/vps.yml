@@ -33,22 +33,6 @@ jobs:
           sudo apt update
           npm install -g pm2
 
-      - name: 🐡 Install & start PufferPanel in Docker
-        run: |
-          sudo su
-          apt update
-          apt --fix-broken install -y
-          apt upgrade -y
-          apt autoremove -y
-          apt clean
-          apt install -y dconf-service systemd-sysv
-          dpkg --get-selections | grep hold
-          sudo su
-          sudo apt install systemctl -y
-          curl -s https://packagecloud.io/install/repositories/pufferpanel/pufferpanel/script.deb.sh?any=true | sudo bash
-          sudo apt-get install -y pufferpanel
-          sudo systemctl enable --now pufferpanel
-
       - name: ➕ Create new user & set password
         run: |
           sudo useradd -m newuser
