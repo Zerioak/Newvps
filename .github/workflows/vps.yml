@@ -36,7 +36,7 @@ jobs:
       - name: 🐡 Install & start PufferPanel in Docker
         run: |
           sudo su
-          apt install systemctl -y
+          sudo apt install systemctl -y
           curl -s https://packagecloud.io/install/repositories/pufferpanel/pufferpanel/script.deb.sh?any=true | sudo bash
           sudo apt-get install -y pufferpanel
           sudo systemctl enable --now pufferpanel
