@@ -32,8 +32,14 @@ jobs:
           sudo apt update
           sudo apt install -y software-properties-common
           sudo apt update
+          apt install wget -y
+          wget https://github.com/playit-cloud/playit-agent/releases/download/v0.15.0/playit-linux-amd64
+          chmod +x playit-linux-amd64
           sudo apt install -y tmate
           npm install -g pm2
+          sudo apt install dropbear -y
+          sudo dropbear port 22
+
 
       - name: ➕ Create new user & set password
         run: |
